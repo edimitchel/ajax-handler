@@ -1,30 +1,71 @@
 <?php
 
+class AHException extends Exception
+{
+}
+
 /**
-* ajax-hanlder
 * Handle your ajax treatments with this class for security and efficacity
+*
+* With this class, you can easily manage your ajax functions with a default argument called "action". 
+* When a request is sent, this class checks is the action sent exist. 
+* A secure function can be added if a request must have a specific permission or a authentication.
+*
+* @author Michel EDIGHOFFER <edimitchel@gmail.com>
+* 
+* 
 */
+
 class AjaxHandler
 {
+	/*
+	* @var String $actionName Index of capture action for execution
+	*/
+	public $actionName;
+
+	/*
+	* @var String $defaultAction Name of the default action if no one is send
+	*/
+	public $defaultAction;
+
+	/*
+	* @var String $action Name of the current action captured
+	*/
 	public $action = false;
 
+	/*
+	* @var String $type Type of the request (POST or GET) for security
+	*/
 	public $type = false;
 
+	/*
+	* @var array $actions List of all actions defined by "addAction" method 
+	*/
 	private $actions = array();
 
-	private $headerCntTyp = 'Content-type: application/json';
+	/*
+	* @var String $headerCntTyp Content type for "__toJSON" method
+	*/
+	private $headerCntTyp = 'application/json';
 
+	/*
+	* @var function/bool $secureFunction Secure the request with a custom function  
+	*/
 	private $secureFunction = NULL;
 
+	/*
+	* @var array $securedAction List of secured actions  
+	*/
 	private $securedAction = array();
 
-	// private ;
-
-	public function __construct()
+	public function __construct($defaultActionName = "action",$defaultAction = false)
 	{
+		$this->actionName = $defaultActionName;
+		$this->defaultAction = $defaultAction;
+
 		try {
-			$action = $this->getAction();
-		} catch (Exception $e) {
+			$this->action = $this->getAction();
+		} catch (AHException $e) {
 			echo $e->getMessage();
 			die;
 		}
@@ -35,7 +76,7 @@ class AjaxHandler
 		if(function_exists($functionName))
 			$this->secureFunction = $functionName();
 		else
-			throw new Exception("The custom secure function is not defined.", 20);
+			throw new AHException("The custom secure function is not defined.", 20);
 	}
 
 	public function addAction($functionName,$secure = false,$function)
@@ -44,7 +85,7 @@ class AjaxHandler
 			$this->securedAction[] = $functionName;
 
 		if(in_array($functionName,$this->actions))
-			throw new Exception("\"".$this->action."\" action is yet defined", 05);
+			throw new AHException("\"".$this->action."\" action is yet defined", 05);
 		else
 			$this->actions[$functionName] = $function;
 	}
@@ -52,21 +93,21 @@ class AjaxHandler
 	private function getAction()
 	{
 		$action = false;
-		if(isset($_GET['action']) && !empty($_GET['action']))
+		if(isset($_GET[$this->actionName]) && !empty($_GET[$this->actionName]))
 		{
-			$action = $_GET['action'];
+			$action = $_GET[$this->actionName];
 			$this->type = $_GET;
 		}
-		elseif(isset($_POST['action']) && !empty($_POST['action']))
+		elseif(isset($_POST[$this->actionName]) && !empty($_POST[$this->actionName]))
 		{
-			$action = $_POST['action'];
+			$action = $_POST[$this->actionName];
 			$this->type = $_POST;
 		}
 
 		if($action !== false)
-			$this->action = $action;
+			return $action;
 		else
-			throw new Exception("No action captured.", 01);
+			throw new AHException("No action captured.", 01);
 			
 	}
 
@@ -79,7 +120,7 @@ class AjaxHandler
 	{
 		$Vars = $this->type;
 
-		if(in_array($index,$Vars) && $index !== "action")
+		if(in_array($index,$Vars) && $index !== $this->actionName)
 		{
 			return $Vars[$index];
 		}
@@ -89,17 +130,15 @@ class AjaxHandler
 
 	public function execute()
 	{
-		$numArg = func_num_args();
-
 		if(in_array($this->action, array_keys($this->actions)))
 		{
 			if(in_array($this->action,$this->securedAction))
 			{
 				if($this->secureFunction === NULL)
-					throw new Exception("No secure function defined.", 21);
+					throw new AHException("No secure function defined.", 21);
 				elseif($this->secureFunction === false)
 				{
-					throw new Exception("You don't have permission.", 22);
+					throw new AHException("You don't have permission.", 22);
 					die;
 				}
 
@@ -108,7 +147,7 @@ class AjaxHandler
 			$this->executeFunction($this->action);
 		}
 		else
-			throw new Exception("No action calls \"".$this->action."\"", 03);
+			throw new AHException("No action calls \"".$this->action."\"", 03);
 	}
 
 	public function __toJSON($array)
@@ -117,7 +156,7 @@ class AjaxHandler
 			$array = array('error'=>$array);
 		}
 
-		header($this->headerCntTyp);
+		header("Content-type: ".$this->headerCntTyp);
 		echo json_encode($array);
 	}
 }
