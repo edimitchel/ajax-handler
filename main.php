@@ -1,4 +1,6 @@
 <?php
+	require_once "ajax.class.php";
+
 	function verifier_connexion()
 	{
 		return false;
