@@ -67,6 +67,24 @@ class AjaxHandler
 			$this->action = $this->getAction();
 		} catch (AHException $e) {
 			echo $e->getMessage();
+		}
+
+		if(isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+			strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === "xmlhttprequest")
+		{
+			$this->actionName = $defaultActionName;
+			$this->defaultAction = $defaultAction;
+
+			try {
+				$this->action = $this->getAction();
+			} catch (AHException $e) {
+				echo $e->getMessage();
+				die;
+			}
+		}
+		else
+		{
+			$this->toString("It is not a xmlhttprequest! Please don't hack!");
 			die;
 		}
 	}
@@ -120,17 +138,17 @@ class AjaxHandler
 	{
 		$Vars = $this->type;
 
-		if(in_array($index,$Vars) && $index !== $this->actionName)
+		if(in_array($index, array_keys($Vars)) && $index !== $this->actionName)
 		{
 			return $Vars[$index];
 		}
 		else
-			return false;
+			return NULL;
 	}
 
 	public function execute()
 	{
-		if(in_array($this->action, array_keys($this->actions)))
+		if(!empty($this->actions) && in_array($this->action, array_keys($this->actions)))
 		{
 			if(in_array($this->action,$this->securedAction))
 			{
@@ -146,6 +164,8 @@ class AjaxHandler
 
 			$this->executeFunction($this->action);
 		}
+		elseif($this->defaultAction !== false)
+			$this->executeFunction($this->defaultAction);
 		else
 			throw new AHException("No action calls \"".$this->action."\"", 03);
 	}
@@ -158,6 +178,14 @@ class AjaxHandler
 
 		header("Content-type: ".$this->headerCntTyp);
 		echo json_encode($array);
+	}
+
+	public function toString($string)
+	{
+		if (is_string($string)) {
+			header("Content-type: plain/text");
+			echo $string;
+		}
 	}
 }
 
